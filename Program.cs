@@ -1,3 +1,7 @@
+using ManageTask.Controllers.Account;
+using ManageTask.Controllers.SendEmail;
+using ManageTask.Controllers.User;
+
 namespace ManageTask
 {
     public class Program
@@ -8,6 +12,20 @@ namespace ManageTask
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();
+            builder.Services.AddScoped<UserService>();
+            builder.Services.AddScoped<EmailService>();
+            builder.Services.AddScoped<UserService>();
+            builder.Services.AddScoped<AccountService>();
+
+            builder.Services.AddAuthentication("ManageTaskCookie")
+                .AddCookie("ManageTaskCookie", options =>
+                {
+                    options.LoginPath = "/signin";
+                    options.AccessDeniedPath = "/access-denied";
+                    options.ExpireTimeSpan = TimeSpan.FromHours(1);
+                });
+
+            builder.Services.AddAuthorization();
 
             var app = builder.Build();
 
@@ -24,6 +42,7 @@ namespace ManageTask
 
             app.UseRouting();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllerRoute(
