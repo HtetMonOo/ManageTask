@@ -1,4 +1,5 @@
-﻿using ManageTask.Models.User;
+﻿using ManageTask.Models;
+using ManageTask.Models.User;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManageTask.Controllers.User
@@ -86,10 +87,10 @@ namespace ManageTask.Controllers.User
                 return RedirectToAction("VerifyEmailFormView", new { email, processId, error = "Invalid Verification Code length!" });
             }
 
-            string result = await userService.CheckEmailVerification(processId, email, code);
-            if (result != "Verified")
+            GeneralResponseModel result = await userService.CheckEmailVerification(processId, email, code);
+            if (!result.Success)
             {
-                return RedirectToAction("VerifyEmailFormView", new { email, processId, error = result });
+                return RedirectToAction("VerifyEmailFormView", new { email, processId, error = result.Message });
             }
 
             return RedirectToAction("SetPasswordView", new { email });

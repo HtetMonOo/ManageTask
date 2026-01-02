@@ -3,11 +3,6 @@ using ManageTask.Controllers.SendEmail;
 using ManageTask.Models;
 using ManageTask.Models.User;
 using Npgsql;
-using Org.BouncyCastle.Crypto.Generators;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Reflection.Metadata.Ecma335;
-using System.Xml.Linq;
 
 namespace ManageTask.Controllers.User
 {

@@ -15,7 +15,7 @@ namespace ManageTask.Controllers.Organization
 
         private string ConnStr => _configuration["ConnectionString"]!;
 
-        // 1. Create organization
+        // Create organization
         public async Task<GeneralResponseModel> CreateOrganization(string name, string description, string creatorId)
         {
             string orgId = Guid.NewGuid().ToString();
@@ -55,7 +55,7 @@ namespace ManageTask.Controllers.Organization
             }
         }
 
-        // 2. Toggle status
+        // Toggle status
         public async Task<GeneralResponseModel> ToggleOrganizationStatus(string orgId, string userId)
         {
             try
@@ -100,7 +100,7 @@ namespace ManageTask.Controllers.Organization
             }
         }
 
-        // 3. Get orgs for user
+        // Get orgs for user
         public async Task<List<OrganizationModel>> GetOrganizationsForUser(string userId)
         {
             var list = new List<OrganizationModel>();
@@ -130,7 +130,7 @@ namespace ManageTask.Controllers.Organization
             return list;
         }
 
-        // 4. Organization details
+        // Organization details
         public async Task<OrganizationDetailModel> GetOrganizationDetail(string orgId)
         {
             var result = new OrganizationDetailModel();
@@ -169,7 +169,7 @@ namespace ManageTask.Controllers.Organization
             return result;
         }
 
-        // 5. Update organization info
+        // Update organization info
         public async Task<GeneralResponseModel> UpdateOrganization(string orgId, string name, string description, string userId)
         {
             try
@@ -219,89 +219,6 @@ namespace ManageTask.Controllers.Organization
             }
         }
 
-        // 6. Update role
-        public async Task<GeneralResponseModel> UpdateOrgRole(string orgId, string userId, string role, string currentUserId)
-        {
-            try
-            {
-                await using var conn = new NpgsqlConnection(ConnStr);
-                await conn.OpenAsync();
-
-                string query = @"
-                    UPDATE OrganizationMember o
-                    SET role = @Role
-                    WHERE o.orgid = @OrgId
-                      AND o.userid = @UserId
-                      AND (
-                          @Role != 'Member'
-                          OR (
-                              SELECT COUNT(*)
-                              FROM OrganizationMember
-                              WHERE orgid = @OrgId
-                                AND role = 'Admin'
-                                AND status = 'Active'
-                          ) > 1
-                      )
-                      AND EXISTS (
-                          SELECT 1
-                          FROM OrganizationMember om
-                          WHERE om.orgid = o.orgid
-                            AND om.userid = @CurrentUserId
-                            AND om.role = 'Admin'
-                            AND om.status = 'Active'
-                      );
-                    ";
-                var cmd = new NpgsqlCommand(query, conn);
-
-                cmd.Parameters.AddWithValue("@Role", role);
-                cmd.Parameters.AddWithValue("@OrgId", orgId);
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                cmd.Parameters.AddWithValue("@CurrentUserId", currentUserId);
-
-                int rows = await cmd.ExecuteNonQueryAsync();
-
-                if (rows == 0)
-                {
-                    return new GeneralResponseModel
-                    {
-                        Success = false,
-                        Message = "You are not authorized or this operation is not allowed."
-                    };
-                }
-
-                return new GeneralResponseModel { Success = true, Message = "Role updated" };
-            }
-            catch
-            {
-                return new GeneralResponseModel { Success = false, Message = "Role update failed" };
-            }
-        }
-
-        // 7. Invite user (email-based)
-        public async Task<GeneralResponseModel> InviteUser(string orgId, string email, string inviterId)
-        {
-            // Simplified: store invitation only
-            try
-            {
-                await using var conn = new NpgsqlConnection(ConnStr);
-                await conn.OpenAsync();
-
-                var cmd = new NpgsqlCommand(
-                    "INSERT INTO OrganizationInvite (orgid, email, invitedby, status) VALUES (@OrgId, @Email, @Inviter, 'Pending')",
-                    conn);
-
-                cmd.Parameters.AddWithValue("@OrgId", orgId);
-                cmd.Parameters.AddWithValue("@Email", email);
-                cmd.Parameters.AddWithValue("@Inviter", inviterId);
-
-                await cmd.ExecuteNonQueryAsync();
-
-                return new GeneralResponseModel { Success = true, Message = "Invitation sent" };
-            }
-            catch
-            {
-                return new GeneralResponseModel { Success = false, Message = "Failed to invite user" };
-            }
-        }
+        
     }
 }

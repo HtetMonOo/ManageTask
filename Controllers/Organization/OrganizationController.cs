@@ -20,7 +20,7 @@ namespace ManageTask.Controllers.Organization
             return User.FindFirstValue(ClaimTypes.NameIdentifier);
         }
 
-        // 1. Create organization
+        // Create organization
         [HttpPost("/organization/create")]
         public async Task<IActionResult> CreateOrganization(string name, string description)
         {
@@ -35,7 +35,7 @@ namespace ManageTask.Controllers.Organization
             return Ok(result);
         }
 
-        // 2. Toggle organization status
+        // Toggle organization status
         [HttpPost("/organization/toggle")]
         public async Task<IActionResult> ToggleOrganization(string orgId)
         {
@@ -45,7 +45,7 @@ namespace ManageTask.Controllers.Organization
             return Ok(result);
         }
 
-        // 3. Get organizations user belongs to
+        // Get organizations user belongs to
         [HttpGet("/organization/my")]
         public async Task<IActionResult> GetMyOrganizations()
         {
@@ -55,7 +55,7 @@ namespace ManageTask.Controllers.Organization
             return Ok(organizations);
         }
 
-        // 4. Organization details
+        // Organization details
         [HttpGet("/organization/detail")]
         public async Task<IActionResult> GetOrganizationDetail(string orgId)
         {
@@ -63,7 +63,7 @@ namespace ManageTask.Controllers.Organization
             return Ok(detail);
         }
 
-        // 5. Update organization info
+        // Update organization info
         [HttpPost("/organization/update")]
         public async Task<IActionResult> UpdateOrganization(string orgId, string name, string description)
         {
@@ -73,31 +73,6 @@ namespace ManageTask.Controllers.Organization
             return Ok(result);
         }
 
-        // 6. Add / Remove organization admin
-        [HttpPost("/organization/admin/add")]
-        public async Task<IActionResult> AddAdmin(string orgId, string userId)
-        {
-            string currentUserId = GetCurrentUserId();
-            var result = await _organizationService.UpdateOrgRole(orgId, userId, "Admin", currentUserId);
-            return Ok(result);
-        }
-
-        [HttpPost("/organization/admin/remove")]
-        public async Task<IActionResult> RemoveAdmin(string orgId, string userId)
-        {
-            string currentUserId = GetCurrentUserId();
-            var result = await _organizationService.UpdateOrgRole(orgId, userId, "Member", currentUserId);
-            return Ok(result);
-        }
-
-        // 7. Invite user to organization
-        [HttpPost("/organization/invite")]
-        public async Task<IActionResult> InviteUser(string orgId, string email)
-        {
-            string inviterId = GetCurrentUserId();
-            var result = await _organizationService.InviteUser(orgId, email, inviterId);
-
-            return Ok(result);
-        }
+        
     }
 }

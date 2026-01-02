@@ -6,5 +6,10 @@
         {
             return true;
         }
+
+        public async Task<bool> SendOrgInvitation(string email, string orgId)
+        {
+            return true;
+        }
     }
 }
