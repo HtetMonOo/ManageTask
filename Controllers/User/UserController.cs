@@ -99,17 +99,80 @@ namespace ManageTask.Controllers.User
         }
 
         [HttpPost("user/create")]
-        public async Task<IActionResult> AddUser(UserModel user)
+        public async Task<IActionResult> AddUser([FromBody] UserModel user)
         {
             if(user == null)
             {
                 return Ok("user cannot be null!");
             }
 
+            if (string.IsNullOrEmpty(user.Email))
+            {
+                return Ok("Email is required.");
+            }
+
+            if (string.IsNullOrEmpty(user.Password))
+            {
+                return Ok("Password is required.");
+            }
+
             int affectedRows = await userService.SaveUser(user);
             if(affectedRows == 1)
             {
                 return Ok("User created successfully");
+            }
+
+            return Ok("Something went wrong!");
+        }
+
+        [HttpPost("user/update")]
+        public async Task<IActionResult> UpdateUser([FromBody] UserModel user)
+        {
+            if (user == null)
+            {
+                return Ok("user cannot be null!");
+            }
+
+            if (string.IsNullOrEmpty(user.UserId))
+            {
+                return Ok("Userid is required.");
+            }
+
+            if (string.IsNullOrEmpty(user.Email))
+            {
+                return Ok("Email is required.");
+            }
+
+
+            int affectedRows = await userService.UpdateUser(user);
+            if (affectedRows == 1)
+            {
+                return Ok("User info updated successfully");
+            }
+
+            return Ok("Something went wrong!");
+        }
+
+        [HttpPost("user/password/change")]
+        public async Task<IActionResult> ChangePassword(string userid, string password)
+        {
+            
+
+            if (string.IsNullOrEmpty(userid))
+            {
+                return Ok("Userid is required.");
+            }
+
+            if (string.IsNullOrEmpty(password))
+            {
+                return Ok("Password is required.");
+            }
+
+
+            int affectedRows = await userService.ChangePassword(userid, password);
+            if (affectedRows == 1)
+            {
+                return Ok("Password is changed successfully");
             }
 
             return Ok("Something went wrong!");

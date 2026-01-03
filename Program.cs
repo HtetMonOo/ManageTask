@@ -1,5 +1,13 @@
 using ManageTask.Controllers.Account;
+using ManageTask.Controllers.Comment;
+using ManageTask.Controllers.Organization;
+using ManageTask.Controllers.OrganizationMember;
+using ManageTask.Controllers.Project;
 using ManageTask.Controllers.SendEmail;
+using ManageTask.Controllers.Task;
+using ManageTask.Controllers.TaskAssignment;
+using ManageTask.Controllers.Team;
+using ManageTask.Controllers.TeamMember;
 using ManageTask.Controllers.User;
 
 namespace ManageTask
@@ -16,6 +24,14 @@ namespace ManageTask
             builder.Services.AddScoped<EmailService>();
             builder.Services.AddScoped<UserService>();
             builder.Services.AddScoped<AccountService>();
+            builder.Services.AddScoped<OrganizationService>();
+            builder.Services.AddScoped<OrgMemberService>();
+            builder.Services.AddScoped<TeamService>();
+            builder.Services.AddScoped<TeamMemberService>();
+            builder.Services.AddScoped<ProjectService>();
+            builder.Services.AddScoped<TaskService>();
+            builder.Services.AddScoped<TaskAssignmentService>();
+            builder.Services.AddScoped<CommentService>();
 
             builder.Services.AddAuthentication("ManageTaskCookie")
                 .AddCookie("ManageTaskCookie", options =>

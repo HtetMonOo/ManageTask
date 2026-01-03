@@ -48,10 +48,9 @@ namespace ManageTask.Controllers.OrganizationMember
 
         // Accept invitation to organization
         [HttpPost("/organization/accept")]
-        public async Task<IActionResult> AcceptInvitation(string orgId)
+        public async Task<IActionResult> AcceptInvitation(string token)
         {
-            string userId = GetCurrentUserId();
-            var result = await _orgMemberService.AcceptInviation(orgId, userId);
+            var result = await _orgMemberService.AcceptInviation(token);
 
             return Ok(result);
         }

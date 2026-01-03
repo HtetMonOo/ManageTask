@@ -25,7 +25,7 @@ namespace ManageTask.Controllers.Account
                 await using var conn = new NpgsqlConnection(dbConnection);
                 await conn.OpenAsync();
 
-                string query = "SELECT userid, name, email, password FROM \"User\" WHERE email = @Email AND status = 'Active' LIMIT 1;";
+                string query = "SELECT userid, name, email, password FROM \"user\" WHERE email = @Email AND status = 'Active' LIMIT 1;";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@Email", email);

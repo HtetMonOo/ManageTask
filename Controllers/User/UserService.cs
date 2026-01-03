@@ -3,6 +3,7 @@ using ManageTask.Controllers.SendEmail;
 using ManageTask.Models;
 using ManageTask.Models.User;
 using Npgsql;
+using System.Threading.Tasks;
 
 namespace ManageTask.Controllers.User
 {
@@ -25,7 +26,7 @@ namespace ManageTask.Controllers.User
                 await using var conn = new NpgsqlConnection(dbConnection);
                 await conn.OpenAsync();
 
-                string query = "SELECT 1 FROM \"User\" WHERE email = @Email LIMIT 1;";
+                string query = "SELECT 1 FROM \"user\" WHERE email = @Email LIMIT 1;";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@Email", email);
@@ -51,7 +52,7 @@ namespace ManageTask.Controllers.User
                 await using var conn = new NpgsqlConnection(dbConnection);
                 await conn.OpenAsync();
 
-                string query = "INSERT INTO VerificationRecord (processId, email, code, expiredDate) " +
+                string query = "INSERT INTO verification_record (processId, email, code, expired_date) " +
                     "VALUES (@ID, @Email, @Code, @Expire);";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
@@ -83,53 +84,37 @@ namespace ManageTask.Controllers.User
                 await using var conn = new NpgsqlConnection(dbConnection);
                 await conn.OpenAsync();
 
-                string query = "SELECT code, expiredDate FROM VerificationRecord WHERE processId = @Id AND email = @Email;";
+                string query = @"
+                    DELETE FROM verification_record
+                    WHERE processId = @Id
+                      AND email = @Email
+                      AND code = @Code
+                      AND expired_date > NOW()
+                    RETURNING 1;
+                    ";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@Id", processId);
                 cmd.Parameters.AddWithValue("@Email", email);
+                cmd.Parameters.AddWithValue("@Code", code);
 
-                await using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                var result = await cmd.ExecuteScalarAsync();
+
+                if (result == null)
                 {
-                    string correctCode = reader["code"] as string;
-                    DateTime expiredTime = reader.GetDateTime(reader.GetOrdinal("expiredDate"));
-
-                    if (correctCode == null)
+                    return new GeneralResponseModel
                     {
-                        return new GeneralResponseModel
-                        {
-                            Success = false,
-                            Message = "There is no verfication request for the given values."
-                        };
-                    }
-                    if(correctCode == code)
-                    {
-                        if (expiredTime < DateTime.UtcNow)
-                        {
-                            return new GeneralResponseModel
-                            {
-                                Success = false,
-                                Message = "The verification code is expired. Try again."
-                            };
-                            
-                        }
-                        else
-                        {
-                            string deleteQuery = "DELETE FROM VerificationRecord WHERE processId = @Id;";
-
-                            await using var deleteCmd = new NpgsqlCommand(deleteQuery, conn);
-                            deleteCmd.Parameters.AddWithValue("@Id", processId);
-
-                            await cmd.ExecuteNonQueryAsync();
-                            return new GeneralResponseModel
-                            {
-                                Success = true,
-                                Message = "Verified"
-                            };
-                        }
-                    }
+                        Success = false,
+                        Message = "Invalid or expired verification code."
+                    };
                 }
+
+                return new GeneralResponseModel
+                {
+                    Success = true,
+                    Message = "Verified"
+                };
+
             }
             catch (Exception e)
             {
@@ -145,13 +130,14 @@ namespace ManageTask.Controllers.User
 
         public async Task<int> SaveUser(UserModel user)
         {
+            user.UserId = Guid.NewGuid().ToString();
             string dbConnection = _configuration["ConnectionString"]!;
             try
             {
                 await using var conn = new NpgsqlConnection(dbConnection);
                 await conn.OpenAsync();
 
-                string query = "INSERT INTO User (userid, name, email, password, profilepicture, status) " +
+                string query = "INSERT INTO \"user\" (userid, name, email, password, profile_picture, status) " +
                     "VALUES (@ID, @Name, @Email, @Password, @Profile, @Status);";
 
                 await using var cmd = new NpgsqlCommand(query, conn);
@@ -160,7 +146,7 @@ namespace ManageTask.Controllers.User
                 cmd.Parameters.AddWithValue("@Name", user.Name);
                 cmd.Parameters.AddWithValue("@Email", user.Email);
                 cmd.Parameters.AddWithValue("@Password", BCrypt.Net.BCrypt.HashPassword(user.Password));
-                cmd.Parameters.AddWithValue("@Profile", user.ProfilePicture);
+                cmd.Parameters.AddWithValue("@Profile", user.ProfilePicture ?? "");
                 cmd.Parameters.AddWithValue("@Status", "Active");
 
                 int result = await cmd.ExecuteNonQueryAsync();
@@ -174,6 +160,71 @@ namespace ManageTask.Controllers.User
             }
             
         }
+
+
+        public async Task<int> UpdateUser(UserModel user)
+        {
+            string dbConnection = _configuration["ConnectionString"]!;
+            try
+            {
+                await using var conn = new NpgsqlConnection(dbConnection);
+                await conn.OpenAsync();
+
+                string query = @"
+                    UPDATE ""user"" 
+                    SET name = @Name, email = @Email, profile_picture = @Profile 
+                    WHERE userid = @ID;";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+
+                cmd.Parameters.AddWithValue("@ID", user.UserId);
+                cmd.Parameters.AddWithValue("@Name", user.Name);
+                cmd.Parameters.AddWithValue("@Email", user.Email);
+                cmd.Parameters.AddWithValue("@Profile", user.ProfilePicture ?? "");
+                cmd.Parameters.AddWithValue("@Status", "Active");
+
+                int result = await cmd.ExecuteNonQueryAsync();
+                return result;
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return 0;
+            }
+
+        }
+
+        public async Task<int> ChangePassword(string userid, string password)
+        {
+            string dbConnection = _configuration["ConnectionString"]!;
+            try
+            {
+                await using var conn = new NpgsqlConnection(dbConnection);
+                await conn.OpenAsync();
+
+                string query = @"
+                    UPDATE ""user"" 
+                    SET password = @Password
+                    WHERE userid = @ID;";
+
+                await using var cmd = new NpgsqlCommand(query, conn);
+
+                cmd.Parameters.AddWithValue("@ID", userid);
+                cmd.Parameters.AddWithValue("@Password", BCrypt.Net.BCrypt.HashPassword(password));
+
+                int result = await cmd.ExecuteNonQueryAsync();
+                return result;
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return 0;
+            }
+
+        }
+
 
         private static Random generator = new Random();
 
