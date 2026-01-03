@@ -1,5 +1,4 @@
 ﻿using ManageTask.Models;
-using ManageTask.Models.Common;
 using ManageTask.Models.Project;
 using ManageTask.Models.Task;
 using Npgsql;
@@ -20,9 +19,11 @@ namespace ManageTask.Controllers.Project
         public async Task<GeneralResponseModel> CreateProject(
             string orgId, string name, string description, string currentUserId)
         {
-            string projectId = Guid.NewGuid().ToString();
+            try
+            {
+                string projectId = Guid.NewGuid().ToString();
 
-            string query = @"
+                string query = @"
                 INSERT INTO Project (projectid, orgid, name, description, status)
                 SELECT @ProjectId, @OrgId, @Name, @Desc, 'Active'
                 WHERE EXISTS (
@@ -33,27 +34,35 @@ namespace ManageTask.Controllers.Project
                       AND status = 'Active'
                 );";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@ProjectId", projectId);
-            cmd.Parameters.AddWithValue("@OrgId", orgId);
-            cmd.Parameters.AddWithValue("@Name", name);
-            cmd.Parameters.AddWithValue("@Desc", description ?? "");
-            cmd.Parameters.AddWithValue("@UserId", currentUserId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                cmd.Parameters.AddWithValue("@OrgId", orgId);
+                cmd.Parameters.AddWithValue("@Name", name);
+                cmd.Parameters.AddWithValue("@Desc", description ?? "");
+                cmd.Parameters.AddWithValue("@UserId", currentUserId);
 
-            int rows = await cmd.ExecuteNonQueryAsync();
+                int rows = await cmd.ExecuteNonQueryAsync();
 
-            return rows > 0
-                ? new GeneralResponseModel { Success = true, Message = "Project created" }
-                : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+                return rows > 0
+                    ? new GeneralResponseModel { Success = true, Message = "Project created" }
+                    : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+            }
+            catch(Exception e)
+            {
+                return new GeneralResponseModel { Success = false, Message = e.Message };
+            }
+            
         }
 
         // Toggle project
         public async Task<GeneralResponseModel> ToggleProject(string projectId, string currentUserId)
         {
-            string query = @"
+            try
+            {
+                string query = @"
                 UPDATE Project p
                 SET status = CASE WHEN status = 'Active' THEN 'Inactive' ELSE 'Active' END
                 WHERE p.projectid = @ProjectId
@@ -65,48 +74,62 @@ namespace ManageTask.Controllers.Project
                         AND om.status = 'Active'
                   );";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@ProjectId", projectId);
-            cmd.Parameters.AddWithValue("@UserId", currentUserId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                cmd.Parameters.AddWithValue("@UserId", currentUserId);
 
-            int rows = await cmd.ExecuteNonQueryAsync();
+                int rows = await cmd.ExecuteNonQueryAsync();
 
-            return rows > 0
-                ? new GeneralResponseModel { Success = true, Message = "Project status updated" }
-                : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+                return rows > 0
+                    ? new GeneralResponseModel { Success = true, Message = "Project status updated" }
+                    : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+            }
+            catch (Exception e)
+            {
+                return new GeneralResponseModel { Success = false, Message = e.Message };
+            }
+            
         }
 
         // List projects in organization
         public async Task<List<ProjectModel>> ListProjects(string orgId)
         {
             var list = new List<ProjectModel>();
-
-            string query = @"
+            try
+            {
+                string query = @"
                 SELECT projectid, name, description, status
                 FROM Project
                 WHERE orgid = @OrgId AND status = 'Active';";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@OrgId", orgId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@OrgId", orgId);
 
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                list.Add(new ProjectModel
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
-                    ProjectId = reader["projectid"].ToString(),
-                    OrgId = orgId,
-                    Name = reader["name"].ToString(),
-                    Description = reader["description"].ToString(),
-                    Status = reader["status"].ToString()
-                });
+                    list.Add(new ProjectModel
+                    {
+                        ProjectId = reader["projectid"].ToString(),
+                        OrgId = orgId,
+                        Name = reader["name"].ToString(),
+                        Description = reader["description"].ToString(),
+                        Status = reader["status"].ToString()
+                    });
+                }
+                return list;
             }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            
 
             return list;
         }
@@ -116,56 +139,67 @@ namespace ManageTask.Controllers.Project
         {
             var result = new ProjectDetailModel();
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+            try
+            {
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            // Project info
-            string projectQuery = @"
+                // Project info
+                string projectQuery = @"
                 SELECT projectid, name, description
                 FROM Project
                 WHERE projectid = @ProjectId;";
 
-            await using (var cmd = new NpgsqlCommand(projectQuery, conn))
-            {
-                cmd.Parameters.AddWithValue("@ProjectId", projectId);
-                await using var reader = await cmd.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
+                await using (var cmd = new NpgsqlCommand(projectQuery, conn))
                 {
-                    result.ProjectId = reader["projectid"].ToString();
-                    result.Name = reader["name"].ToString();
-                    result.Description = reader["description"].ToString();
+                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        result.ProjectId = reader["projectid"].ToString();
+                        result.Name = reader["name"].ToString();
+                        result.Description = reader["description"].ToString();
+                    }
                 }
-            }
 
-            // Tasks (simple version)
-            string taskQuery = @"
+                // Tasks (simple version)
+                string taskQuery = @"
                 SELECT taskid, title, status
                 FROM Task
                 WHERE projectid = @ProjectId;";
 
-            await using (var cmd = new NpgsqlCommand(taskQuery, conn))
-            {
-                cmd.Parameters.AddWithValue("@ProjectId", projectId);
-                await using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                await using (var cmd = new NpgsqlCommand(taskQuery, conn))
                 {
-                    result.Tasks.Add(new TaskModel
+                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                    await using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
                     {
-                        TaskId = reader["taskid"].ToString(),
-                        Title = reader["title"].ToString(),
-                        Status = reader["status"].ToString()
-                    });
+                        result.Tasks.Add(new TaskModel
+                        {
+                            TaskId = reader["taskid"].ToString(),
+                            Title = reader["title"].ToString(),
+                            Status = reader["status"].ToString()
+                        });
+                    }
                 }
-            }
 
-            return result;
+                return result;
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return result;
+            }
+            
         }
 
         // Update project
         public async Task<GeneralResponseModel> UpdateProject(
             string projectId, string name, string description, string currentUserId)
         {
-            string query = @"
+            try
+            {
+                string query = @"
                 UPDATE Project p
                 SET name = @Name, description = @Desc
                 WHERE p.projectid = @ProjectId
@@ -177,27 +211,36 @@ namespace ManageTask.Controllers.Project
                         AND om.status = 'Active'
                   );";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@ProjectId", projectId);
-            cmd.Parameters.AddWithValue("@Name", name);
-            cmd.Parameters.AddWithValue("@Desc", description ?? "");
-            cmd.Parameters.AddWithValue("@UserId", currentUserId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                cmd.Parameters.AddWithValue("@Name", name);
+                cmd.Parameters.AddWithValue("@Desc", description ?? "");
+                cmd.Parameters.AddWithValue("@UserId", currentUserId);
 
-            int rows = await cmd.ExecuteNonQueryAsync();
+                int rows = await cmd.ExecuteNonQueryAsync();
 
-            return rows > 0
-                ? new GeneralResponseModel { Success = true, Message = "Project updated" }
-                : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+                return rows > 0
+                    ? new GeneralResponseModel { Success = true, Message = "Project updated" }
+                    : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+            }
+            catch (Exception e)
+            {
+                return new GeneralResponseModel { Success = false, Message = e.Message };
+            }
+
+            
         }
 
         // Assign project admin
         public async Task<GeneralResponseModel> AddProjectAdmin(
             string projectId, string userId, string currentUserId)
         {
-            string query = @"
+            try
+            {
+                string query = @"
                 INSERT INTO ProjectAdmin (projectid, userid, status)
                 SELECT @ProjectId, @UserId, 'Active'
                 WHERE EXISTS (
@@ -213,26 +256,34 @@ namespace ManageTask.Controllers.Project
                 DO UPDATE SET status = 'Active';
             ";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@ProjectId", projectId);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@CurrentUser", currentUserId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@CurrentUser", currentUserId);
 
-            int rows = await cmd.ExecuteNonQueryAsync();
+                int rows = await cmd.ExecuteNonQueryAsync();
 
-            return rows > 0
-                ? new GeneralResponseModel { Success = true, Message = "Project admin added" }
-                : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+                return rows > 0
+                    ? new GeneralResponseModel { Success = true, Message = "Project admin added" }
+                    : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+            }
+            catch (Exception e)
+            {
+                return new GeneralResponseModel { Success = false, Message = e.Message };
+            }
+            
         }
 
         // Remove project admin
         public async Task<GeneralResponseModel> RemoveProjectAdmin(
             string projectId, string userId, string currentUserId)
         {
-            string query = @"
+            try
+            {
+                string query = @"
                 UPDATE ProjectAdmin pa
                 SET status = 'Inactive'
                 WHERE pa.projectid = @ProjectId
@@ -246,19 +297,25 @@ namespace ManageTask.Controllers.Project
                         AND om.status = 'Active'
                   );";
 
-            await using var conn = new NpgsqlConnection(ConnStr);
-            await conn.OpenAsync();
+                await using var conn = new NpgsqlConnection(ConnStr);
+                await conn.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@ProjectId", projectId);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@CurrentUser", currentUserId);
+                await using var cmd = new NpgsqlCommand(query, conn);
+                cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                cmd.Parameters.AddWithValue("@CurrentUser", currentUserId);
 
-            int rows = await cmd.ExecuteNonQueryAsync();
+                int rows = await cmd.ExecuteNonQueryAsync();
 
-            return rows > 0
-                ? new GeneralResponseModel { Success = true, Message = "Project admin removed" }
-                : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+                return rows > 0
+                    ? new GeneralResponseModel { Success = true, Message = "Project admin removed" }
+                    : new GeneralResponseModel { Success = false, Message = "Unauthorized" };
+            }
+            catch (Exception e)
+            {
+                return new GeneralResponseModel { Success = false, Message = e.Message };
+            }
+            
         }
     }
 }
