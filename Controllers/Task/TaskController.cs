@@ -67,23 +67,6 @@ namespace ManageTask.Controllers.Task
             return Ok(await _taskService.GetTaskDetail(taskId));
         }
 
-        // Assignment
-        [HttpPost("/task/assign/user")]
-        public async Task<IActionResult> AssignUser(string taskId, string userId)
-        {
-            return Ok(await _taskService.AssignTask(taskId, "User", userId, CurrentUserId()));
-        }
-
-        [HttpPost("/task/assign/team")]
-        public async Task<IActionResult> AssignTeam(string taskId, string teamId)
-        {
-            return Ok(await _taskService.AssignTask(taskId, "Team", teamId, CurrentUserId()));
-        }
-
-        [HttpPost("/task/unassign")]
-        public async Task<IActionResult> Unassign(string taskId, string assignType, string assignId)
-        {
-            return Ok(await _taskService.UnassignTask(taskId, assignType, assignId, CurrentUserId()));
-        }
+        
     }
 }
