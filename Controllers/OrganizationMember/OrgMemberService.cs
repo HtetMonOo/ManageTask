@@ -1,6 +1,7 @@
-﻿using ManageTask.Models;
+﻿using ManageTask.Controllers.CipherHelper;
+using ManageTask.Models;
 using Npgsql;
-using System.Xml.Linq;
+using System.Security.Cryptography;
 
 namespace ManageTask.Controllers.OrganizationMember
 {
@@ -19,18 +20,41 @@ namespace ManageTask.Controllers.OrganizationMember
         // Invite user (email-based)
         public async Task<GeneralResponseModel> InviteUser(string orgId, string email, string inviterId)
         {
+
             try
             {
+                string hashedToken = CipherHelperService.GenerateSecureTokenHashed();
+
                 await using var conn = new NpgsqlConnection(ConnStr);
                 await conn.OpenAsync();
 
-                var cmd = new NpgsqlCommand(
-                    "INSERT INTO OrganizationInvite (orgid, email, invitedby, status) VALUES (@OrgId, @Email, @Inviter, 'Pending')",
-                    conn);
+                string query = @"
+                    INSERT INTO organization_invitation (orgid, email, token, status, expiredat)
+                    SELECT 
+                        @OrgId,
+                        @Email,
+                        @Token,
+                        'Pending',
+                        NOW() + INTERVAL '7 days'
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM organization_member om
+                        WHERE om.orgid = @OrgId
+                          AND om.userid = @InviterId
+                          AND om.role = 'Admin'
+                          AND om.status = 'Active'
+                    )
+                    ON CONFLICT (orgid, email)
+                    WHERE status = 'Pending'
+                    DO UPDATE
+                    SET expiredat = NOW() + INTERVAL '7 days';
+                    ";
+                var cmd = new NpgsqlCommand(query,conn);
 
                 cmd.Parameters.AddWithValue("@OrgId", orgId);
                 cmd.Parameters.AddWithValue("@Email", email);
-                cmd.Parameters.AddWithValue("@Inviter", inviterId);
+                cmd.Parameters.AddWithValue("@Token", hashedToken);
+                cmd.Parameters.AddWithValue("@InviterId", inviterId);
 
                 await cmd.ExecuteNonQueryAsync();
 
@@ -42,35 +66,40 @@ namespace ManageTask.Controllers.OrganizationMember
             }
         }
 
-        public async Task<GeneralResponseModel> AcceptInviation(string orgId, string userId)
+        public async Task<GeneralResponseModel> AcceptInviation(string token)
         {
             try
             {
+                string hashedToken = CipherHelperService.HashToken(token);
+
                 await using var conn = new NpgsqlConnection(ConnStr);
                 await conn.OpenAsync();
 
                 await using var tx = await conn.BeginTransactionAsync();
 
                 string query = @"
-                    UPDATE OrganizationInvite
-                    SET status = 'Accepted'
-                    WHERE orgid = @OrgId
-                      AND userid = @UserId;
+                    INSERT INTO organization_member (orgid, userid, role, status)
+                    SELECT i.orgid, u.userid, i.role, 'Active'
+                    FROM OrganizationInvitation i
+                    JOIN ""user"" u ON u.email = i.email
+                    WHERE i.token = @Token
+                      AND i.status = 'Pending';
                     ";
-                var inviteCmd = new NpgsqlCommand(query, conn);
+                var memberCmd = new NpgsqlCommand(query, conn);
 
-                inviteCmd.Parameters.AddWithValue("@OrgId", orgId);
-                inviteCmd.Parameters.AddWithValue("@UserId", userId);
-
-                await inviteCmd.ExecuteNonQueryAsync();
-
-                var memberCmd = new NpgsqlCommand(
-                    "INSERT INTO OrganizationMember (orgid, userid, role, status) VALUES (@OrgId, @UserId, 'Member', 'Active')",
-                    conn);
-
-                memberCmd.Parameters.AddWithValue("@OrgId", orgId);
-                memberCmd.Parameters.AddWithValue("@UserId", userId);
+                memberCmd.Parameters.AddWithValue("@Token", hashedToken);
                 await memberCmd.ExecuteNonQueryAsync();
+
+
+                string inviteQuery = @"
+                    UPDATE organization_invitation
+                    SET status = 'Accepted'
+                    WHERE token = @Token;
+                    ";
+                var inviteCmd = new NpgsqlCommand(inviteQuery,conn);
+
+                inviteCmd.Parameters.AddWithValue("@Token", hashedToken);
+                await inviteCmd.ExecuteNonQueryAsync();
 
                 await tx.CommitAsync();
 
@@ -91,7 +120,7 @@ namespace ManageTask.Controllers.OrganizationMember
 
 
                 string query = @"
-                    UPDATE OrganizationInvite
+                    UPDATE organization_invitation
                     SET status = 'Declined'
                     WHERE orgid = @OrgId
                       AND userid = @UserId;
